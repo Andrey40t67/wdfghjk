@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Eye Tracking</title>
+    <title>Hand Tracking Studio</title>
     <style>
         * {
             margin: 0;
@@ -12,281 +12,518 @@
         }
 
         body {
-            background: #fff;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
             overflow: hidden;
+        }
+
+        #mainCanvas {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100vw;
+            height: 100vh;
             cursor: none;
-            font-family: system-ui, -apple-system, sans-serif;
         }
 
-        #dot {
+        #preview {
             position: fixed;
-            width: 18px;
-            height: 18px;
+            top: 20px;
+            right: 20px;
+            width: 320px;
+            height: 240px;
+            border: 4px solid rgba(255,255,255,0.3);
+            border-radius: 20px;
+            overflow: hidden;
             background: #000;
-            border-radius: 50%;
-            transform: translate(-50%, -50%);
-            pointer-events: none;
-            z-index: 99999;
-            transition: opacity 0.3s;
+            box-shadow: 0 20px 60px rgba(0,0,0,0.4);
         }
 
-        #calibration {
-            position: fixed;
-            inset: 0;
-            background: #fff;
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-            justify-content: center;
-            z-index: 100000;
+        #previewCanvas {
+            width: 100%;
+            height: 100%;
+            transform: scaleX(-1);
         }
 
-        #calibration.hidden {
+        #video {
             display: none;
         }
 
-        h1 {
-            font-size: 48px;
-            font-weight: 700;
-            margin-bottom: 20px;
-            color: #000;
-        }
-
-        p {
-            font-size: 18px;
-            color: #666;
-            margin-bottom: 30px;
-            text-align: center;
-            max-width: 500px;
-            line-height: 1.6;
-        }
-
-        button {
-            background: #000;
-            color: #fff;
-            border: none;
-            padding: 18px 48px;
-            font-size: 18px;
-            font-weight: 600;
-            border-radius: 100px;
-            cursor: pointer;
-            transition: all 0.2s;
-        }
-
-        button:hover {
-            transform: scale(1.05);
-            box-shadow: 0 10px 30px rgba(0,0,0,0.15);
-        }
-
-        button:active {
-            transform: scale(0.98);
-        }
-
-        #instruction {
+        #controls {
             position: fixed;
-            top: 20px;
+            bottom: 30px;
             left: 50%;
             transform: translateX(-50%);
-            background: rgba(0,0,0,0.85);
-            color: #fff;
-            padding: 15px 30px;
+            display: flex;
+            gap: 15px;
+            background: rgba(0,0,0,0.7);
+            padding: 20px 30px;
             border-radius: 50px;
-            font-size: 16px;
-            z-index: 10001;
-            opacity: 0;
-            transition: opacity 0.3s;
-            pointer-events: none;
+            backdrop-filter: blur(10px);
         }
 
-        #instruction.show {
-            opacity: 1;
-        }
-
-        .cal-point {
-            position: fixed;
-            width: 20px;
-            height: 20px;
-            background: #000;
+        .color-btn {
+            width: 50px;
+            height: 50px;
             border-radius: 50%;
-            transform: translate(-50%, -50%);
+            border: 3px solid rgba(255,255,255,0.3);
             cursor: pointer;
-            z-index: 10000;
-            animation: pulse 1s ease-in-out infinite;
+            transition: all 0.3s;
+            position: relative;
+        }
+
+        .color-btn:hover {
+            transform: scale(1.2);
+            border-color: #fff;
+        }
+
+        .color-btn.active {
+            border-color: #fff;
+            box-shadow: 0 0 20px currentColor;
+        }
+
+        .tool-btn {
+            background: rgba(255,255,255,0.2);
+            border: 2px solid rgba(255,255,255,0.3);
+            color: #fff;
+            padding: 12px 24px;
+            border-radius: 25px;
+            cursor: pointer;
+            font-weight: 600;
             transition: all 0.3s;
         }
 
-        .cal-point:hover {
-            transform: translate(-50%, -50%) scale(1.3);
+        .tool-btn:hover {
+            background: rgba(255,255,255,0.3);
+            transform: translateY(-2px);
         }
 
-        @keyframes pulse {
-            0%, 100% {
-                box-shadow: 0 0 0 0 rgba(0,0,0,0.7);
-            }
-            50% {
-                box-shadow: 0 0 0 15px rgba(0,0,0,0);
-            }
+        #gestureInfo {
+            position: fixed;
+            top: 30px;
+            left: 30px;
+            background: rgba(0,0,0,0.8);
+            color: #fff;
+            padding: 20px 30px;
+            border-radius: 20px;
+            font-size: 16px;
+            backdrop-filter: blur(10px);
         }
 
-        #webgazerVideoContainer {
-            display: none !important;
+        #gestureInfo h3 {
+            margin-bottom: 10px;
+            font-size: 20px;
         }
 
-        #webgazerFaceOverlay, #webgazerFaceFeedbackBox {
-            display: none !important;
+        .gesture-line {
+            margin: 5px 0;
+            opacity: 0.9;
         }
 
-        #webgazerGazeDot {
-            display: none !important;
+        #mode {
+            position: fixed;
+            top: 30px;
+            left: 50%;
+            transform: translateX(-50%);
+            background: rgba(0,0,0,0.8);
+            color: #fff;
+            padding: 15px 30px;
+            border-radius: 50px;
+            font-size: 18px;
+            font-weight: 700;
+            backdrop-filter: blur(10px);
+        }
+
+        #loading {
+            position: fixed;
+            inset: 0;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            flex-direction: column;
+            color: #fff;
+            z-index: 10000;
+        }
+
+        #loading.hidden {
+            display: none;
+        }
+
+        .spinner {
+            width: 60px;
+            height: 60px;
+            border: 4px solid rgba(255,255,255,0.3);
+            border-top-color: #fff;
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+            margin-bottom: 20px;
+        }
+
+        @keyframes spin {
+            to { transform: rotate(360deg); }
+        }
+
+        #gameArea {
+            position: fixed;
+            inset: 0;
+            display: none;
+        }
+
+        #gameArea.active {
+            display: block;
+        }
+
+        .ball {
+            position: absolute;
+            width: 40px;
+            height: 40px;
+            background: #fff;
+            border-radius: 50%;
+            box-shadow: 0 5px 20px rgba(0,0,0,0.3);
+        }
+
+        #score {
+            position: fixed;
+            top: 30px;
+            right: 370px;
+            background: rgba(0,0,0,0.8);
+            color: #fff;
+            padding: 15px 25px;
+            border-radius: 20px;
+            font-size: 24px;
+            font-weight: 700;
         }
     </style>
 </head>
 <body>
-    <div id="dot"></div>
-    <div id="instruction">Кликни на точку, глядя на нее</div>
+    <canvas id="mainCanvas"></canvas>
+    
+    <div id="preview">
+        <canvas id="previewCanvas"></canvas>
+    </div>
+    
+    <video id="video" autoplay playsinline></video>
 
-    <div id="calibration">
-        <h1>👁️</h1>
-        <p>Для точного трекинга нужна быстрая калибровка.<br>Просто кликай на точки, глядя на них.</p>
-        <button onclick="startTracking()">Начать</button>
+    <div id="gestureInfo">
+        <h3>✋ Жесты</h3>
+        <div class="gesture-line">☝️ Pointing Up - Рисовать</div>
+        <div class="gesture-line">✌️ Victory - Смена цвета</div>
+        <div class="gesture-line">👍 Thumb Up - Очистить</div>
+        <div class="gesture-line">✊ Fist - Стереть</div>
+        <div class="gesture-line">🖐️ Open Palm - Игра</div>
     </div>
 
-    <script src="https://webgazer.cs.brown.edu/webgazer.js"></script>
-    <script>
-        let dot;
-        let instruction;
-        let calibrationDiv;
-        let isCalibrating = false;
-        let calibrationPoints = [];
-        let currentPoint = 0;
-        let clicksPerPoint = 0;
-        const requiredClicksPerPoint = 3;
+    <div id="mode">🎨 Режим рисования</div>
+    <div id="score" style="display: none;">Счет: 0</div>
 
-        // Сглаживание
-        let smoothX = window.innerWidth / 2;
-        let smoothY = window.innerHeight / 2;
-        const smoothFactor = 0.15;
+    <div id="controls">
+        <div class="color-btn active" style="background: #ff0000" data-color="#ff0000"></div>
+        <div class="color-btn" style="background: #00ff00" data-color="#00ff00"></div>
+        <div class="color-btn" style="background: #0000ff" data-color="#0000ff"></div>
+        <div class="color-btn" style="background: #ffff00" data-color="#ffff00"></div>
+        <div class="color-btn" style="background: #ff00ff" data-color="#ff00ff"></div>
+        <div class="color-btn" style="background: #00ffff" data-color="#00ffff"></div>
+        <div class="color-btn" style="background: #ffffff" data-color="#ffffff"></div>
+        <button class="tool-btn" onclick="clearCanvas()">Очистить</button>
+        <button class="tool-btn" onclick="toggleMode()">Режим игры</button>
+    </div>
 
-        window.startTracking = async function() {
-            dot = document.getElementById('dot');
-            instruction = document.getElementById('instruction');
-            calibrationDiv = document.getElementById('calibration');
+    <div id="gameArea"></div>
 
-            // Настройка WebGazer
-            webgazer.params.showVideo = false;
-            webgazer.params.showFaceOverlay = false;
-            webgazer.params.showFaceFeedbackBox = false;
-            webgazer.params.showGazeDot = false;
+    <div id="loading">
+        <div class="spinner"></div>
+        <h2>Загрузка MediaPipe...</h2>
+    </div>
 
-            webgazer.setRegression('ridge')
-                .setTracker('TFFacemesh')
-                .begin();
+    <script type="module">
+        import { GestureRecognizer, FilesetResolver, DrawingUtils } from 'https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.14';
 
-            webgazer.showPredictionPoints(false);
+        let gestureRecognizer;
+        let video, mainCanvas, mainCtx, previewCanvas, previewCtx;
+        let drawingUtils;
+        let isDrawing = false;
+        let lastX = 0, lastY = 0;
+        let currentColor = '#ff0000';
+        let brushSize = 10;
+        let isGameMode = false;
+        let gameScore = 0;
+        let balls = [];
+        let lastGesture = '';
+        let gestureTimer = 0;
 
-            // Скрыть все элементы WebGazer
-            setTimeout(() => {
-                const video = document.getElementById('webgazerVideoContainer');
-                if (video) video.style.display = 'none';
-            }, 100);
+        async function init() {
+            video = document.getElementById('video');
+            mainCanvas = document.getElementById('mainCanvas');
+            mainCtx = mainCanvas.getContext('2d');
+            previewCanvas = document.getElementById('previewCanvas');
+            previewCtx = previewCanvas.getContext('2d');
 
-            // Запуск калибровки
-            startCalibration();
-        };
+            mainCanvas.width = window.innerWidth;
+            mainCanvas.height = window.innerHeight;
+            previewCanvas.width = 640;
+            previewCanvas.height = 480;
 
-        function startCalibration() {
-            calibrationDiv.classList.add('hidden');
-            instruction.classList.add('show');
-            isCalibrating = true;
+            // Получение доступа к камере
+            const stream = await navigator.mediaDevices.getUserMedia({
+                video: { width: 1280, height: 720, facingMode: 'user' }
+            });
+            video.srcObject = stream;
+            await video.play();
 
-            const w = window.innerWidth;
-            const h = window.innerHeight;
-            const m = 80; // отступ от краев
+            // Загрузка MediaPipe
+            const vision = await FilesetResolver.forVisionTasks(
+                'https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.14/wasm'
+            );
 
-            // 9 точек калибровки
-            calibrationPoints = [
-                {x: w/2, y: h/2},      // центр
-                {x: m, y: m},          // верхний левый
-                {x: w-m, y: m},        // верхний правый
-                {x: w-m, y: h-m},      // нижний правый
-                {x: m, y: h-m},        // нижний левый
-                {x: w/2, y: m},        // верхний центр
-                {x: w-m, y: h/2},      // правый центр
-                {x: w/2, y: h-m},      // нижний центр
-                {x: m, y: h/2}         // левый центр
-            ];
+            gestureRecognizer = await GestureRecognizer.createFromOptions(vision, {
+                baseOptions: {
+                    modelAssetPath: 'https://storage.googleapis.com/mediapipe-models/gesture_recognizer/gesture_recognizer/float16/1/gesture_recognizer.task',
+                    delegate: 'GPU'
+                },
+                runningMode: 'VIDEO',
+                numHands: 2,
+                minHandDetectionConfidence: 0.5,
+                minHandPresenceConfidence: 0.5,
+                minTrackingConfidence: 0.5
+            });
 
-            showCalibrationPoint();
+            drawingUtils = new DrawingUtils(previewCtx);
+
+            document.getElementById('loading').classList.add('hidden');
+            detectHands();
         }
 
-        function showCalibrationPoint() {
-            if (currentPoint >= calibrationPoints.length) {
-                finishCalibration();
-                return;
-            }
+        function detectHands() {
+            if (video.readyState === video.HAVE_ENOUGH_DATA) {
+                const results = gestureRecognizer.recognizeForVideo(video, performance.now());
 
-            const point = calibrationPoints[currentPoint];
-            const calPoint = document.createElement('div');
-            calPoint.className = 'cal-point';
-            calPoint.style.left = point.x + 'px';
-            calPoint.style.top = point.y + 'px';
-            
-            calPoint.onclick = function(e) {
-                clicksPerPoint++;
-                
-                // Регистрация клика в WebGazer
-                webgazer.recordScreenPosition(point.x, point.y, 'click');
-                
-                if (clicksPerPoint >= requiredClicksPerPoint) {
-                    calPoint.remove();
-                    clicksPerPoint = 0;
-                    currentPoint++;
-                    
-                    if (currentPoint < calibrationPoints.length) {
-                        setTimeout(showCalibrationPoint, 300);
-                    } else {
-                        finishCalibration();
+                // Очистка превью
+                previewCtx.clearRect(0, 0, previewCanvas.width, previewCanvas.height);
+                previewCtx.drawImage(video, 0, 0, previewCanvas.width, previewCanvas.height);
+
+                if (results.landmarks && results.landmarks.length > 0) {
+                    for (let i = 0; i < results.landmarks.length; i++) {
+                        const landmarks = results.landmarks[i];
+                        
+                        // Рисуем скелет руки в превью
+                        drawingUtils.drawConnectors(landmarks, GestureRecognizer.HAND_CONNECTIONS, {
+                            color: '#00FF00',
+                            lineWidth: 3
+                        });
+                        drawingUtils.drawLandmarks(landmarks, {
+                            color: '#FF0000',
+                            lineWidth: 2,
+                            radius: 5
+                        });
+
+                        // Получаем позицию указательного пальца (landmark 8)
+                        const indexTip = landmarks[8];
+                        const thumbTip = landmarks[4];
+                        
+                        const x = (1 - indexTip.x) * mainCanvas.width;
+                        const y = indexTip.y * mainCanvas.height;
+
+                        // Обработка жестов
+                        if (results.gestures && results.gestures[i]) {
+                            const gesture = results.gestures[i][0];
+                            handleGesture(gesture.categoryName, x, y, landmarks);
+                        }
+
+                        // Рисование курсора
+                        if (!isGameMode) {
+                            mainCtx.fillStyle = currentColor;
+                            mainCtx.beginPath();
+                            mainCtx.arc(x, y, 15, 0, Math.PI * 2);
+                            mainCtx.fill();
+                        }
                     }
                 }
-            };
 
-            document.body.appendChild(calPoint);
+                if (isGameMode) {
+                    updateGame(results);
+                }
+            }
+
+            requestAnimationFrame(detectHands);
         }
 
-        function finishCalibration() {
-            isCalibrating = false;
-            instruction.classList.remove('show');
+        function handleGesture(gesture, x, y, landmarks) {
+            const now = Date.now();
             
-            // Запуск отслеживания
-            webgazer.setGazeListener(function(data, timestamp) {
-                if (data == null) return;
+            // Дебаунс для жестов (избегаем спама)
+            if (gesture !== lastGesture) {
+                lastGesture = gesture;
+                gestureTimer = now;
+            }
 
-                // Сглаживание координат
-                smoothX += (data.x - smoothX) * smoothFactor;
-                smoothY += (data.y - smoothY) * smoothFactor;
+            if (now - gestureTimer < 300) return;
 
-                // Ограничение в пределах экрана
-                smoothX = Math.max(0, Math.min(window.innerWidth, smoothX));
-                smoothY = Math.max(0, Math.min(window.innerHeight, smoothY));
+            switch(gesture) {
+                case 'Pointing_Up':
+                    // Рисование
+                    if (!isGameMode) {
+                        if (isDrawing) {
+                            mainCtx.strokeStyle = currentColor;
+                            mainCtx.lineWidth = brushSize;
+                            mainCtx.lineCap = 'round';
+                            mainCtx.lineJoin = 'round';
+                            mainCtx.beginPath();
+                            mainCtx.moveTo(lastX, lastY);
+                            mainCtx.lineTo(x, y);
+                            mainCtx.stroke();
+                        }
+                        lastX = x;
+                        lastY = y;
+                        isDrawing = true;
+                    }
+                    break;
 
-                dot.style.left = smoothX + 'px';
-                dot.style.top = smoothY + 'px';
+                case 'Victory':
+                    // Смена цвета
+                    if (now - gestureTimer > 1000) {
+                        const colors = ['#ff0000', '#00ff00', '#0000ff', '#ffff00', '#ff00ff', '#00ffff', '#ffffff'];
+                        const currentIndex = colors.indexOf(currentColor);
+                        currentColor = colors[(currentIndex + 1) % colors.length];
+                        updateActiveColor();
+                        gestureTimer = now;
+                    }
+                    break;
+
+                case 'Thumb_Up':
+                    // Очистка холста
+                    if (now - gestureTimer > 1500) {
+                        clearCanvas();
+                        gestureTimer = now;
+                    }
+                    break;
+
+                case 'Closed_Fist':
+                    // Стирание
+                    if (!isGameMode) {
+                        mainCtx.globalCompositeOperation = 'destination-out';
+                        mainCtx.beginPath();
+                        mainCtx.arc(x, y, 30, 0, Math.PI * 2);
+                        mainCtx.fill();
+                        mainCtx.globalCompositeOperation = 'source-over';
+                    }
+                    isDrawing = false;
+                    break;
+
+                case 'Open_Palm':
+                    // Переключение режима игры
+                    if (now - gestureTimer > 2000) {
+                        toggleMode();
+                        gestureTimer = now;
+                    }
+                    break;
+
+                default:
+                    isDrawing = false;
+            }
+        }
+
+        function updateGame(results) {
+            // Простая игра - ловим шарики рукой
+            const gameArea = document.getElementById('gameArea');
+            
+            // Создаем новые шарики
+            if (Math.random() < 0.02) {
+                const ball = document.createElement('div');
+                ball.className = 'ball';
+                ball.style.left = Math.random() * (window.innerWidth - 40) + 'px';
+                ball.style.top = '-40px';
+                ball.dataset.speed = (Math.random() * 3 + 2).toString();
+                gameArea.appendChild(ball);
+                balls.push(ball);
+            }
+
+            // Обновляем позиции шариков
+            balls = balls.filter(ball => {
+                let top = parseFloat(ball.style.top) || 0;
+                top += parseFloat(ball.dataset.speed);
+                ball.style.top = top + 'px';
+
+                // Проверка столкновения с рукой
+                if (results.landmarks && results.landmarks.length > 0) {
+                    const hand = results.landmarks[0];
+                    const palm = hand[9]; // Центр ладони
+                    const handX = (1 - palm.x) * window.innerWidth;
+                    const handY = palm.y * window.innerHeight;
+                    
+                    const ballX = parseFloat(ball.style.left) + 20;
+                    const ballY = top + 20;
+                    
+                    const dist = Math.hypot(handX - ballX, handY - ballY);
+                    
+                    if (dist < 80) {
+                        ball.remove();
+                        gameScore++;
+                        document.getElementById('score').textContent = 'Счет: ' + gameScore;
+                        return false;
+                    }
+                }
+
+                // Удаляем если вышел за экран
+                if (top > window.innerHeight) {
+                    ball.remove();
+                    return false;
+                }
+
+                return true;
             });
         }
 
-        // Остановка при закрытии
-        window.addEventListener('beforeunload', () => {
-            if (webgazer) {
-                webgazer.end();
+        window.clearCanvas = function() {
+            mainCtx.clearRect(0, 0, mainCanvas.width, mainCanvas.height);
+        };
+
+        window.toggleMode = function() {
+            isGameMode = !isGameMode;
+            const modeDiv = document.getElementById('mode');
+            const scoreDiv = document.getElementById('score');
+            const gameArea = document.getElementById('gameArea');
+            const controls = document.getElementById('controls');
+
+            if (isGameMode) {
+                modeDiv.textContent = '🎮 Режим игры';
+                scoreDiv.style.display = 'block';
+                gameArea.classList.add('active');
+                controls.style.display = 'none';
+                clearCanvas();
+                gameScore = 0;
+                scoreDiv.textContent = 'Счет: 0';
+            } else {
+                modeDiv.textContent = '🎨 Режим рисования';
+                scoreDiv.style.display = 'none';
+                gameArea.classList.remove('active');
+                controls.style.display = 'flex';
+                gameArea.innerHTML = '';
+                balls = [];
             }
+        };
+
+        function updateActiveColor() {
+            document.querySelectorAll('.color-btn').forEach(btn => {
+                btn.classList.toggle('active', btn.dataset.color === currentColor);
+            });
+        }
+
+        // Выбор цвета кликом
+        document.querySelectorAll('.color-btn').forEach(btn => {
+            btn.addEventListener('click', () => {
+                currentColor = btn.dataset.color;
+                updateActiveColor();
+            });
         });
 
-        // Продолжение обучения при кликах
-        document.addEventListener('click', (e) => {
-            if (!isCalibrating && webgazer) {
-                webgazer.recordScreenPosition(e.clientX, e.clientY, 'click');
-            }
+        // Адаптация размеров при изменении окна
+        window.addEventListener('resize', () => {
+            mainCanvas.width = window.innerWidth;
+            mainCanvas.height = window.innerHeight;
         });
+
+        init();
     </script>
 </body>
 </html>
